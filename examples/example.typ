@@ -137,13 +137,13 @@ It has the following tree:
 
             ((a_val or b_val) and not (a_val and b_val))
         },
-        repr: $ #a_repr space dot(or) space #b_repr $,
+        repr: $#a_repr space dot(or) space #b_repr$,
         skip: skip
     )
 }
 
 #let expression = my-xor("A", "B")
 
-#expression.repr
+$ #expression.repr $
 
 #align(center, truth-table(expression))
