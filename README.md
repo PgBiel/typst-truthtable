@@ -18,3 +18,6 @@ excessive columns with `skip: true` (e.g. `l-and(a, b, skip: true))` will not sh
 the possible values for "a and b" in the table).
 
 See `examples/` for examples.
+
+![image](https://user-images.githubusercontent.com/9021226/228386381-96bcfdb2-76a5-4966-8d21-31a06887345d.png)
+
