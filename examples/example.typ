@@ -7,7 +7,7 @@
 Importing some names with:
 
 ```typ
-#import "../truthtable.typ": truth-table, l-and, l-or, l-imp, l-iff, l-not, l-var l-expr-tree
+#import "../truthtable.typ": truth-table, l-and, l-or, l-imp, l-iff, l-not, l-var, l-expr-tree
 ```
 
 Import more as needed (do note, however, that there are several "private" functions,
