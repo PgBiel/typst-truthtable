@@ -1,20 +1,22 @@
 // Logic "true" object
-#let l-true(repr: $ top $) = (
+#let l-true(repr: $top$) = (
     logic_dict: true,
     logic_type: "true",
     repr: [#repr],
     value: m => true,
     name: "TRUE",
+    skip: true,
     children: ()
 )
 
 // Logic "false" object
-#let l-false(repr: $ bot $) = (
+#let l-false(repr: $bot$) = (
     logic_dict: true,
     logic_type: "false",
     repr: [#repr],
     name: "FALSE",
     value: m => false,
+    skip: true,
     children: ()
 )
 
@@ -22,12 +24,15 @@
 #let l-bool(bool) = if bool { l-true() } else { l-false() }
 
 // Logic atomic variable / proposition / ...
+// Specify "skip: true" to omit its column
+// on the table.
 #let l-var(name, repr: none) = (
     logic_dict: true,
     logic_type: "var",
-    repr: if repr == none { $ #name $ } else { [#repr] },
+    repr: if repr == none { $#name$ } else { [#repr] },
     name: name,
     value: mapping => if name in mapping { mapping.at(name) } else { false },
+    skip: false,
     children: ()
 )
 
@@ -35,7 +40,7 @@
 // Boolean becomes a true or false object;
 // A string becomes a logical variable;
 // All else 
-#let l-conv(val) = if type(val) == "boolean" {
+#let l-logic-convert(val) = if type(val) == "boolean" {
     l-bool(val)
 } else if type(val) in ("string", "content") {
     l-var(val)
@@ -53,77 +58,123 @@
     name,
     ..children,
     value: mapping => false,
-    repr: none
+    repr: none,
+    skip: false,
 ) = (
     logic_dict: true,
     logic_type: "operator",
     name: str(name),
     repr: if repr == none { [#name] } else { repr },
     value: value,
-    children: children.pos().map(l-conv)
+    skip: skip,
+    children: children.pos().map(l-logic-convert)
 )
 
+// Return an expression's representation,
+// around parentheses if it has multiple children
+#let l-parens-repr-if-composite(expr) = {
+    if expr.children.len() > 1 {
+        $(#expr.repr)$
+    } else {
+        $#expr.repr$
+    }
+}
+
+// Generate binary operator representation
+#let l-gen-binary-operator-repr(op, a, b, parens: auto) = {
+    let a_repr = a.repr
+    let b_repr = b.repr
+
+    if parens == auto {
+        a_repr = l-parens-repr-if-composite(a)
+        b_repr = l-parens-repr-if-composite(b)
+    } else if parens {  // force parens
+        a_repr = $(#a_repr)$
+        b_repr = $(#b_repr)$
+    }
+
+    $#a_repr #op #b_repr$
+}
+
+// Generate unry operator representation
+#let l-gen-unary-operator-repr(op, a, parens: auto) = {
+    let a_repr = a.repr
+
+    if parens == auto {
+        a_repr = l-parens-repr-if-composite(a)
+    } else if parens {  // force parens
+        a_repr = $(#a_repr)$
+    }
+
+    $#op #a_repr$
+}
+
 // Logic object for the AND operator
-#let l-and(a, b) = {
-    let a = l-conv(a)
-    let b = l-conv(b)
+#let l-and(a, b, parens: auto, skip: false) = {
+    let a = l-logic-convert(a)
+    let b = l-logic-convert(b)
 
     l-operator(
         "AND",
         a, b,
         value: mapping => (a.value)(mapping) and (b.value)(mapping),
-        repr: $ (#a.repr and #b.repr) $,
+        repr: l-gen-binary-operator-repr($and$, a, b, parens: parens),
+        skip: skip,
     )
 }
 
 // Logic object for the OR operator
-#let l-or(a, b) = {
-    let a = l-conv(a)
-    let b = l-conv(b)
-    
+#let l-or(a, b, parens: auto, skip: false) = {
+    let a = l-logic-convert(a)
+    let b = l-logic-convert(b)
+
     l-operator(
         "OR",
         a, b,
         value: mapping => (a.value)(mapping) or (b.value)(mapping),
-        repr: $ (#a.repr or #b.repr) $,
+        repr: l-gen-binary-operator-repr($or$, a, b, parens: parens),
+        skip: skip,
     )
 }
 
 // Logic object for the NOT operator
-#let l-not(a) = {
-    let a = l-conv(a)
+#let l-not(a, parens: auto, skip: false) = {
+    let a = l-logic-convert(a)
     
     l-operator(
         "NOT",
         a,
         value: mapping => not (a.value)(mapping),
-        repr: $ (not #a.repr) $,
+        repr: l-gen-unary-operator-repr($not$, a, parens: parens),
+        skip: skip,
     )
 }
 
 // Logic object for the IMPLIES operator
-#let l-imp(a, b) = {
-    let a = l-conv(a)
-    let b = l-conv(b)
+#let l-imp(a, b, parens: auto, skip: false) = {
+    let a = l-logic-convert(a)
+    let b = l-logic-convert(b)
     
     l-operator(
         "IMP",
         a, b,
         value: mapping => (not (a.value)(mapping)) or (b.value)(mapping),
-        repr: $ (#a.repr -> #b.repr) $,
+        repr: l-gen-binary-operator-repr($->$, a, b, parens: parens),
+        skip: skip,
     )
 }
 
 // Logic object for the IF AND ONLY IF operator
-#let l-iff(a, b) = {
-    let a = l-conv(a)
-    let b = l-conv(b)
+#let l-iff(a, b, parens: auto, skip: false) = {
+    let a = l-logic-convert(a)
+    let b = l-logic-convert(b)
     
     l-operator(
         "IFF",
         a, b,
         value: mapping => (a.value)(mapping) == (b.value)(mapping),
-        repr: $ (#a.repr <-> #b.repr) $,
+        repr: l-gen-binary-operator-repr($<->$, a, b, parens: parens),
+        skip: skip,
     )
 }
 
@@ -142,27 +193,65 @@
     }
 }
 
+#let l-compare-logic-objects(a, b) = (
+    (type(a) == "dictionary")
+        and (type(b) == "dictionary")
+        and "logic_dict" in a
+        and "logic_dict" in b
+        and a.logic_dict
+        and b.logic_dict
+        and a.logic_type == b.logic_type
+        and a.repr == b.repr
+        and a.name == b.name
+        and a.skip == b.skip
+)
+
 // Returns all sub-expressions of an expression until the given
 // depth (-1 = unlimited)
-#let l-expr-tree(expr, max_depth: -1) = {
+// 'unique: true' is used to ensure elements do not repeat
+// and 'initial_vars: true' ensures all variables are at the beginning
+// of the tree
+#let l-expr-tree(
+    expr,
+    max_depth: -1, unique: true, initial_vars: true
+) = {
     if max_depth == 0 {  // reached the max
         return ()
     }
 
-    if expr.children.len() == 0 {
-        if (expr.name not in ("TRUE", "FALSE")) {
-            (expr,)
-        } else {
-            ()
-        }
+    if expr.logic_type in ("true", "false") {
+        ()
     } else {
         let subexprs = expr.children.map(
             c => l-expr-tree(
                 c,
-                max_depth: calc.max(-1, max_depth - 1)))
+                max_depth: calc.max(-1, max_depth - 1),
+                unique: false,  // deal with it only on the first-level
+                initial_vars: initial_vars))
         // don't allow going below -1 ^
 
-        (expr, ..subexprs)
+        let res = subexprs.flatten()
+
+        if initial_vars and expr.logic_type == "var" {
+            res.insert(0, expr)  // variable at the beginning
+        } else {
+            res.push(expr)
+        }
+
+        if unique {
+            res.fold(
+                (),
+                (acc, expr) => {
+                    if acc.filter(l-compare-logic-objects.with(expr)).len() == 0 {
+                        acc + (expr,)
+                    } else {
+                        acc
+                    }
+                }
+            )
+        } else {
+            res
+        }
     }
 }
 
@@ -202,8 +291,12 @@
     // join with the true/false combinations from the
     // other variables
     for d in tail_res {
-        res.push((: ..true_d, ..d))
-        res.push((: ..false_d, ..d))
+        if head in d {  // don't override this variable's existing values
+            res.push(d)
+        } else {
+            res.push((: ..true_d, ..d))
+            res.push((: ..false_d, ..d))
+        }
     }
 
     if res.len() == 0 {  // base case: only one variable => T/F
@@ -230,26 +323,14 @@
 
     let expr_tree = l-expr-tree(expr)
         .flatten()
-        .rev()
-    
-    let unique_tree = ()
+        .filter(e => "skip" not in e or not e.skip)
 
-    for expr in expr_tree {  // filter out repeated cols
-        if expr not in unique_tree {
-            if "logic_type" in expr and expr.logic_type == "var" {
-                unique_tree.insert(0, expr)
-            } else {
-                unique_tree.push(expr)
-            }
-        }
-    }
-
-    let table_children = unique_tree.map(c => c.repr)
     // initialize with the table headers
+    let table_children = expr_tree.map(c => c.repr)
 
     for map in mappings {
         let seen_expr = ()
-        for expr in unique_tree {
+        for expr in expr_tree {
             let bool_value = (expr.value)(map)
 
             table_children.push(if bool_value {
@@ -261,7 +342,7 @@
     }
 
     table(
-        columns: (auto,) * unique_tree.len(),
+        columns: (auto,) * expr_tree.len(),
         rows: (auto,) * mappings.len(),
         ..table_children,
         ..table_args.named())
