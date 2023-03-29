@@ -24,8 +24,6 @@
 #let l-bool(bool) = if bool { l-true() } else { l-false() }
 
 // Logic atomic variable / proposition / ...
-// Specify "skip: true" to omit its column
-// on the table.
 #let l-var(name, repr: none) = (
     logic_dict: true,
     logic_type: "var",
@@ -39,10 +37,10 @@
 // Convert a value to their equivalent logical object
 // Boolean becomes a true or false object;
 // A string becomes a logical variable;
-// All else 
+// All else must be a dictionary created by this library.
 #let l-logic-convert(val) = if type(val) == "boolean" {
     l-bool(val)
-} else if type(val) in ("string", "content") {
+} else if type(val) == "string" {
     l-var(val)
 } else if type(val) != "dictionary" {
     panic("Failed to convert value (of type '" + type(val) + "') to a logic object: Not a boolean, string or dictionary.")
@@ -193,6 +191,8 @@
     }
 }
 
+// Returns 'true' if two logic objects
+// are likely to represent the same thing
 #let l-compare-logic-objects(a, b) = (
     (type(a) == "dictionary")
         and (type(b) == "dictionary")
@@ -329,7 +329,6 @@
     let table_children = expr_tree.map(c => c.repr)
 
     for map in mappings {
-        let seen_expr = ()
         for expr in expr_tree {
             let bool_value = (expr.value)(map)
 
