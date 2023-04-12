@@ -311,12 +311,16 @@
 // control the output of True and False values.
 // Any additional args are passed to the 'table' call
 // (such as 'fill').
+// Use 'table_func' to override the default table function.
 #let truth-table(
     expr,
     repr_true: "T",
     repr_false: "F",
+    table_func: table,
     ..table_args
 ) = {
+    assert(type(table_func) == "function", message: "'table_func' must be a function")
+
     let vars = l-search-variables(expr)
     let varnames = vars.map(c => c.name)
     let mappings = l-gen-true-false-maps(varnames)
@@ -340,7 +344,7 @@
         }
     }
 
-    table(
+    table_func(
         columns: (auto,) * expr_tree.len(),
         rows: (auto,) * mappings.len(),
         ..table_children,
